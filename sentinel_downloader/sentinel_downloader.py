@@ -887,7 +887,26 @@ class DownloadSentinel:
         
         except Exception as e:
             return f"ERROR: {str(e)}"
-        
+
+    # ... después de otros métodos como selectOutputFolder ...
+
+    def selectClipGPKG(self):
+        """Abre el explorador asegurando que esté al frente"""
+        # Usamos self.dlg como padre para que la ventana sepa dónde reportar
+        filename, _ = QFileDialog.getOpenFileName(
+            self.dlg,
+            "Seleccionar GeoPackage de recorte",
+            "",
+            "GeoPackage (*.gpkg)"
+        )
+
+        if filename:
+            self.dlg.le_clip_path.setText(filename)
+
+        # Después de cerrar el explorador, forzamos que el diálogo vuelva a estar activo
+        self.dlg.activateWindow()
+        self.dlg.raise_()
+
     def downloadImage(self, url, name, download_type, band_name=None):
         if download_type == "ql":
             outpath = os.path.join(f"{self.dlg.le_outputFolder_2.text()}", f"{name}_ql.jpg")
@@ -1036,7 +1055,8 @@ class DownloadSentinel:
                             if not os.path.isfile(outpath):
                                 self.downloadImage(b_url, prod_identifier, "band", band_name=f_name)
                             else:
-                                self.createLog(f"{f_name} - Skipping... File already exists.")                                
+                                self.createLog(f"{f_name} - Skipping... File already exists.")
+
                 
                 jp2_path = os.path.join(f"{self.dlg.le_outputFolder_2.text()}", f"{prod_identifier}")
                                 
@@ -1255,7 +1275,11 @@ class DownloadSentinel:
         
 
     def executeDownloadImages(self):
-        
+
+        # 1. CAPTURAMOS LOS DATOS DEL GPKG JUSTO AHORA
+        self.gpkg_path = self.dlg.le_clip_path.text()
+        self.layer_name = self.dlg.mLineEditLayerName.text()
+
         self.dlg.pb_download.setValue(0)
         self.dlg.processEvents()
         
@@ -1483,6 +1507,7 @@ class DownloadSentinel:
                                          geotransform, 
                                          [b8_array],
                                          [b4_path])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_ndwi.isChecked():
                         out_file_path = b8_path.replace("B08","ndwi").replace("jp2", "tif")
@@ -1494,6 +1519,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b3_array, b8_array],
                                          [])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_ndmi.isChecked():
                         out_file_path = b8_path.replace("B08","ndmi").replace("jp2", "tif")
@@ -1505,6 +1531,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b8_array, b11_array],
                                          [])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_ndsi.isChecked():
                         out_file_path = b3_path.replace("B03","ndsi").replace("jp2", "tif")
@@ -1516,6 +1543,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b3_array, b11_array],
                                          [])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_ndbi.isChecked():
                         out_file_path = b8_path.replace("B08","ndbi").replace("jp2", "tif")
@@ -1527,6 +1555,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b8_array, b11_array],
                                          [])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_nbr.isChecked():
                         if producttype == "S2MSI2A":
@@ -1544,6 +1573,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b8_array],
                                          [b12_path])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_gndvi.isChecked():
                         out_file_path = b8_path.replace("B08","gndvi").replace("jp2", "tif")
@@ -1555,6 +1585,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b3_array, b8_array],
                                          [])
+                        self.clip_raster_with_gpkg(out_file_path)
                         
                     if self.dlg2.cb_bsi.isChecked():
                         if producttype == "S2MSI2A":
@@ -1574,6 +1605,7 @@ class DownloadSentinel:
                                          geotransform,
                                          [b8_array, b11_array],
                                          [b2_path, b4_path])
+                        self.clip_raster_with_gpkg(out_file_path)
                     
                 
                 except Exception as e:
@@ -1820,9 +1852,22 @@ class DownloadSentinel:
         if self.first_start == True:
             # self.first_start = False
             self.dlg = DownloadSentinelDialog()
+            # 2. Cargamos las credenciales guardadas
+            if os.path.isfile(os.path.join(os.path.dirname(__file__), 'credentials.txt')):
+                with open(os.path.join(os.path.dirname(__file__), 'credentials.txt'), "r") as f:
+                    self.creds = literal_eval(f.read())
+            else:
+                self.creds = {}
+
+            # 3. Configuramos la interfaz
+            self.le_username = self.dlg.cb_username.lineEdit()
+            self.dlg.cb_username.addItems(sorted(self.creds.keys()))
+            self.dlg.cb_username.setCurrentText("")
+
+
             self.dlg2 = IndexWindow()
             self.dlg3 = CredsWindow()
-            
+
             if any([
                 (date.today().day == 18 and date.today().month == 3),
                 (date.today().day == 23 and date.today().month == 4),
@@ -1831,7 +1876,7 @@ class DownloadSentinel:
                 (date.today().day == 29 and date.today().month == 10),
                 (date.today().day == 10 and date.today().month == 11)
                 ]):
-                
+
                 self.dlg.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
                 self.dlg2.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
                 self.dlg3.setWindowIcon(QIcon(':/plugins/sentinel_downloader/mka.png'))
@@ -1839,32 +1884,32 @@ class DownloadSentinel:
                 self.dlg.setWindowIcon(QIcon(':/plugins/sentinel_downloader/icon.png'))
                 self.dlg2.setWindowIcon(QIcon(':/plugins/sentinel_downloader/icon.png'))
                 self.dlg3.setWindowIcon(QIcon(':/plugins/sentinel_downloader/icon.png'))
-            
-            
+
+
             self.dlg.closeEvent = self.onCloseEvent
             self.dlg2.closeEvent = self.onCloseEvent2
             self.dlg3.closeEvent = self.onCloseEvent3
-            
-            
+
+
             self.dateCheck = True
             self.extentCheck = False
             self.folderCheck = False
-            
+
             self.fileCheck2 = False
             self.folderCheck2 = False
             self.loginCheck2 = False
-            
+
             self.dlg.pb_download.setVisible(False)
             self.dlg.pe_log.resize(381, 504)
-            
+
             self.bear = None
-            
+
             self.pixmap_hide = QPixmap(':/plugins/sentinel_downloader/show.png')
             self.pixmap_show = QPixmap(':/plugins/sentinel_downloader/hide.png')
-            
+
             self.dlg.lbl_img.setPixmap(self.pixmap_show)
             self.dlg3.lbl_img.setPixmap(self.pixmap_show)
-            
+
             self.dlg2.lbl_url_ndvi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndvi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
             self.dlg2.lbl_url_ndwi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndwi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
             self.dlg2.lbl_url_ndmi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndmi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
@@ -1873,19 +1918,19 @@ class DownloadSentinel:
             self.dlg2.lbl_url_nbr.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/nbr/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
             self.dlg2.lbl_url_gndvi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/gndvi/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
             self.dlg2.lbl_url_bsi.setText("""<html><head/><body><a href="https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/barren_soil/"><img src=":/plugins/sentinel_downloader/url.png"/></a></body></html>""")
-            
+
             self.dlg.lbl_info.setText("""<html><head/><body><a href="https://github.com/caliskanmurat/qgis_sentinel2_image_downloader_plugin"><img width="20" height="20" src=":/plugins/sentinel_downloader/info.svg"/></a></body></html>""")
-                        
-            ed = QDate.currentDate()       
+
+            ed = QDate.currentDate()
             self.dlg.dt_endDate.setDate(ed)
-            
+
             sd = QDate.currentDate().addDays(-10)
             self.dlg.dt_startDate.setDate(sd)
-                        
+
             layers = [v.name() for v in QgsProject.instance().mapLayers().values()]
             self.dlg.cb_layers.clear()
             self.dlg.cb_layers.addItems(layers)
-            
+
             layerName = self.dlg.cb_layers.currentText()
             selected_layers = QgsProject.instance().mapLayersByName(layerName)
             if len(selected_layers) > 0:
@@ -1893,10 +1938,10 @@ class DownloadSentinel:
                     self.dlg.cb_feat_bounds.setEnabled(True)
                     no_feats = selected_layers[0].featureCount()
                     self.dlg.lbl_no_feats.setText("# of features : " + str(no_feats) + " ")
-                
+
                 else:
-                    self.dlg.cb_feat_bounds.setEnabled(False)              
-            
+                    self.dlg.cb_feat_bounds.setEnabled(False)
+
             self.chc_bands = {
                     "all" : self.dlg2.cb_all,
                     "b1" : self.dlg2.cb_b1,
@@ -1915,7 +1960,7 @@ class DownloadSentinel:
                     "btci" : self.dlg2.cb_tci,
                     "bscl" : self.dlg2.cb_scl
             }
-            
+
             self.chc_indices = {
                     "ndvi" : self.dlg2.cb_ndvi,
                     "ndwi" : self.dlg2.cb_ndwi,
@@ -1926,21 +1971,21 @@ class DownloadSentinel:
                     "gndvi" : self.dlg2.cb_gndvi,
                     "bsi" : self.dlg2.cb_bsi
             }
-            
+
             self.chc_other = {
                     "ql" : self.dlg2.cb_ql,
                     "raw" : self.dlg2.cb_raw
             }
-            
+
             self.chc_clip_merge = {
-                    "merge" : self.dlg2.cb_merge,                    
+                    "merge" : self.dlg2.cb_merge,
                     "deflate" : self.dlg2.rb_deflate,
                     "lzw" : self.dlg2.rb_lzw,
                     "none" : self.dlg2.rb_nocomp,
                     "multiply" : self.dlg2.cb_multiply
             }
-            
-            
+
+
             self.bands_map = {
                     "b1" : "B01",
                     "b2" : "B02",
@@ -1960,27 +2005,27 @@ class DownloadSentinel:
                     "ql":"Quicklook Image",
                     "raw":"Raw Image (.zip)",
                     "merge" : "Merge as VRT"
-            }            
-            
+            }
+
             self.dlg.lbl_message_2.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid extent value! </span></p></body></html>')
             self.dlg.lbl_message_3.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid folder path! </span></p></body></html>')
             self.dlg.lbl_message_4.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid folder path! </span></p></body></html>')
             self.dlg.lbl_message_5.setText('<html><head/><body><p><span style=" color:#ff0000;"> Invalid file path! </span></p></body></html>')
             self.dlg.lbl_message_6.setText('<html><head/><body><p><span style=" color:#ff0000;"> Login to download! </span></p></body></html>')
-            
+
             for _, cb in self.chc_indices.items():
                 cb.clicked.connect(self.cb_control)
-            
+
             for _, cb in self.chc_bands.items():
                 cb.clicked.connect(self.cb_control)
-            
+
             for _, cb in self.chc_other.items():
                 cb.clicked.connect(self.cb_control)
-            
+
             self.dlg.btn_canvasExtent.clicked.connect(self.getCanvasExtent)
             self.dlg.btn_layerextent.clicked.connect(self.getLayerExtent)
-            self.dlg.tbtn_draw.clicked.connect(lambda x:self.getDrawnCoor(self.iface.mapCanvas()))            
-         
+            self.dlg.tbtn_draw.clicked.connect(lambda x:self.getDrawnCoor(self.iface.mapCanvas()))
+
             self.dlg.btn_execute.clicked.connect(self.executeFootprints)
             self.dlg.btn_execute_2.clicked.connect(self.executeDownloadImages)
             self.dlg.btn_execute_3.clicked.connect(self.cleanFootprints)
@@ -1990,59 +2035,117 @@ class DownloadSentinel:
             self.dlg.btn_browse_4.clicked.connect(self.selectInputFile)
             self.dlg.btn_browse_ql.clicked.connect(self.selectQlFile)
             self.dlg.btn_browse_ql_2.clicked.connect(self.selectQlFile)
+            self.dlg.btn_browse_clip.clicked.connect(self.selectClipGPKG)
             self.dlg.pb_remove.clicked.connect(self.removeQlList)
-            
+
             self.dlg.dt_startDate.dateChanged.connect(self.checkDates)
             self.dlg.dt_endDate.dateChanged.connect(self.checkDates)
             self.dlg.sb_extent_minx.valueChanged.connect(self.checkExtent)
             self.dlg.sb_extent_maxx.valueChanged.connect(self.checkExtent)
             self.dlg.sb_extent_miny.valueChanged.connect(self.checkExtent)
             self.dlg.sb_extent_maxy.valueChanged.connect(self.checkExtent)
-            
+
             self.dlg.le_outputFolder.textChanged[str].connect(self.outFolderCheck)
             self.dlg.le_outputFolder_2.textChanged[str].connect(self.outFolderCheck)
             self.dlg.le_inputfile.textChanged[str].connect(self.inputFileCheck)
-            
+
             self.dlg.btn_checkcreds.clicked.connect(self.checkCredentials)
-            
+
             self.dlg.lbl_img.mousePressEvent = self.showPassword
             self.dlg.lbl_img.mouseReleaseEvent = self.hidePassword
-            
+
             self.dlg3.lbl_img.mousePressEvent = self.showPassword2
             self.dlg3.lbl_img.mouseReleaseEvent = self.hidePassword2
-            
+
             self.dlg.pb_indices.clicked.connect(self.showIndexSettings)
-            
+
             self.dlg.pb_creds_setting.clicked.connect(self.showCredsSettings)
-            
+
             self.dlg.btn_clearLogs.clicked.connect(lambda x:self.dlg.pe_log.clear())
-            
+
             self.dlg2.btn_clearAll.clicked.connect(self.clearAllChecks)
             self.dlg2.btn_closeIndex.clicked.connect(self.indicesOk)
-                        
+
             self.dlg.cb_layers.currentTextChanged.connect(self.checkLayer)
             self.dlg.cb_feat_bounds.clicked.connect(self.resetExtent)
-            
+
             self.dlg.tabWidget.currentChanged.connect(self.tabChange)
-            
+
             self.dlg3.lw_creds.itemPressed.connect(lambda x:self.dlg3.pb_delete_cred.setEnabled(True))
             self.dlg3.pb_delete_cred.clicked.connect(self.deleteCred)
             self.dlg3.pb_add_cred.clicked.connect(self.addCred)
-            
+
             if not os.path.isfile(os.path.join(os.path.dirname(__file__), 'credentials.txt')):
                 with open(os.path.join(os.path.dirname(__file__), 'credentials.txt'), "w") as f:
                     f.write("{}")
-            
+
             with open(os.path.join(os.path.dirname(__file__), 'credentials.txt')) as f:
                 self.creds = literal_eval(f.read())
-            
+
             self.dlg.cb_username.addItems(sorted(self.creds.keys()))
-            
+
             self.le_username = QLineEdit()
             self.le_username.setPlaceholderText("Email")
             self.dlg.cb_username.setLineEdit(self.le_username)
             self.dlg.cb_username.setCurrentIndex(-1)
-            
+
+            # ... (final de las conexiones y configuraciones)
             self.le_username.textChanged[str].connect(self.fillPassword)
-            
-        self.dlg.show()
+
+            # Usamos show() en lugar de exec_() para que no bloquee QGIS
+            self.dlg.show()
+
+    def clip_raster_with_gpkg(self, input_path):
+        """Reproyecta y recorta el raster usando el CRS del GPKG."""
+        from qgis import processing
+        from qgis.core import QgsVectorLayer
+        import os
+
+        # 1. Verificaciones previas
+        if not hasattr(self, 'gpkg_path') or not self.gpkg_path or not os.path.exists(self.gpkg_path):
+            return
+
+        # 2. Obtener el CRS de la capa del GeoPackage
+        mask_path = f"{self.gpkg_path}|layername={self.layer_name}"
+        vlayer = QgsVectorLayer(mask_path, "mask", "ogr")
+
+        if not vlayer.isValid():
+            self.createLog(f"Error: No se pudo leer la capa {self.layer_name} del GPKG.")
+            return
+
+        # Extraemos el código Auth (ej: 'EPSG:25830')
+        target_crs = vlayer.crs().authid()
+
+        # 3. Definir rutas
+        output_path = input_path.replace(".jp2", "_temp.tif").replace(".tif", "_temp.tif")
+
+        # 4. Parámetros de GDAL (Añadimos reproyección al vuelo)
+        params = {
+            'INPUT': input_path,
+            'MASK': mask_path,
+            'SOURCE_CRS': None,  # Detecta el original de Sentinel
+            'TARGET_CRS': target_crs,  # Forzamos el CRS de tu GPKG
+            'NODATA': 0,
+            'CROP_TO_CUTLINE': True,
+            'KEEP_RESOLUTION': True,
+            'SET_RESOLUTION': False,
+            'OPTIONS': 'COMPRESS=LZW',
+            'DATA_TYPE': 0,
+            'OUTPUT': output_path
+        }
+
+        try:
+            self.createLog(f"Reproyectando a {target_crs} y recortando: {os.path.basename(input_path)}...")
+
+            # 'gdal:cliprasterbymasklayer' acepta TARGET_CRS y hace el warp automáticamente
+            processing.run("gdal:cliprasterbymasklayer", params)
+
+            if os.path.exists(output_path):
+                os.remove(input_path)
+                # Si el original era .jp2, ahora será .tif permanentemente
+                final_name = input_path.replace(".jp2", ".tif")
+                os.rename(output_path, final_name)
+                self.createLog(f"Proceso finalizado: {os.path.basename(final_name)}")
+
+        except Exception as e:
+            self.createLog(f"Error en reproyección/recorte: {str(e)}")

@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Sentinel 2 Image Downloader</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="6,5">
+  <layout class="QHBoxLayout" name="horizontalLayout_3" stretch="0,5">
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="enabled">
@@ -26,7 +26,7 @@
       </sizepolicy>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="footprints">
       <attribute name="title">
@@ -674,6 +674,91 @@
         </widget>
        </item>
       </layout>
+     </widget>
+     <widget class="QWidget" name="widget">
+      <attribute name="title">
+       <string>Clip</string>
+      </attribute>
+      <widget class="QGroupBox" name="grp_input_footprint_2">
+       <property name="geometry">
+        <rect>
+         <x>0</x>
+         <y>20</y>
+         <width>371</width>
+         <height>161</height>
+        </rect>
+       </property>
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="title">
+        <string>Input Clip File(s) (GPKG)</string>
+       </property>
+       <layout class="QVBoxLayout" name="verticalLayout_13" stretch="4,5,0,0">
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_21" stretch="21,2">
+          <item>
+           <widget class="QLineEdit" name="le_clip_path">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="frame">
+             <bool>true</bool>
+            </property>
+            <property name="alignment">
+             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+            </property>
+            <property name="placeholderText">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="btn_browse_clip">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string>...</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QLabel" name="lbl_message_7">
+          <property name="text">
+           <string>mmmmm</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Nombre capa clip&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="mLineEditLayerName"/>
+        </item>
+       </layout>
+      </widget>
      </widget>
      <widget class="QWidget" name="images">
       <attribute name="title">
